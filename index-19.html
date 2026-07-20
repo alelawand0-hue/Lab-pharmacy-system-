@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="ckb" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سیستەمی تاقیگە</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --ink:#132524;
+    --ink-soft:#3d5453;
+    --bg:#F5F8F7;
+    --panel:#FFFFFF;
+    --line:#E1E9E7;
+    --teal:#0F5257;
+    --teal-deep:#0A3B3F;
+    --mint:#3FA79B;
+    --mint-soft:#E4F3F0;
+    --amber:#C98A2C;
+    --amber-soft:#FBF1DF;
+    --red:#C1443A;
+    --red-soft:#FBEAE8;
+    --radius:14px;
+    --shadow: 0 1px 2px rgba(19,37,36,0.04), 0 8px 24px rgba(19,37,36,0.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Vazirmatn', sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono', monospace;}
+  ::selection{background:var(--mint-soft);}
+
+  /* ---------- layout ---------- */
+  .app{display:flex; min-height:100vh;}
+  .sidebar{
+    width:230px;
+    flex-shrink:0;
+    background:linear-gradient(180deg, var(--teal-deep), var(--teal) 70%);
+    color:#eaf4f2;
+    padding:22px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    position:sticky;
+    top:0;
+    height:100vh;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px;
+    padding:6px 8px 22px 8px;
+  }
+  .brand-mark{
+    width:34px;height:34px;border-radius:9px;
+    background:rgba(255,255,255,0.12);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .brand-mark svg{width:19px;height:19px;}
+  .brand-text{font-weight:800;font-size:15.5px;letter-spacing:0.2px;}
+  .brand-sub{font-size:10.5px;color:#a9d4cd;font-weight:500;}
+
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding:11px 12px;
+    border-radius:10px;
+    color:#cfe9e4;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+    user-select:none;
+  }
+  .nav-item svg{width:17px;height:17px;flex-shrink:0;opacity:.85;}
+  .nav-item:hover{background:rgba(255,255,255,0.08); color:#fff;}
+  .nav-item.active{background:#fff; color:var(--teal-deep);}
+  .nav-item.active svg{opacity:1;}
+  .nav-spacer{flex:1;}
+  .sync-pill{
+    display:flex;align-items:flex-start;gap:8px;
+    font-size:11px;color:#bfe3dc;
+    padding:9px 10px;border-radius:10px;
+    background:rgba(0,0,0,0.14);
+    line-height:1.5;
+    word-break:break-word;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:#5fd6a8;flex-shrink:0;}
+  .dot.off{background:#e2a23e;}
+  .dot.err{background:#e2645a;}
+
+  .main{flex:1; min-width:0; padding:26px 34px 60px 34px;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:12px;}
+  .page-title{font-size:22px; font-weight:800; margin:0;}
+  .page-sub{font-size:13px; color:var(--ink-soft); margin-top:3px;}
+
+  .btn{
+    border:none; cursor:pointer; font-family:inherit;
+    border-radius:10px; padding:10px 16px; font-size:13.5px; font-weight:700;
+    display:inline-flex; align-items:center; gap:7px;
+    transition:transform .1s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--teal); color:#fff;}
+  .btn-primary:hover{background:var(--teal-deep);}
+  .btn-ghost{background:var(--panel); color:var(--ink); border:1px solid var(--line);}
+  .btn-ghost:hover{background:#F0F5F4;}
+  .btn-soft{background:var(--mint-soft); color:var(--teal-deep);}
+  .btn-danger{background:var(--red-soft); color:var(--red);}
+  .btn svg{width:15px;height:15px;}
+  .btn-sm{padding:7px 11px; font-size:12.5px; border-radius:8px;}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);}
+  .panel-pad{padding:20px;}
+
+  /* dashboard cards */
+  .stat-row{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px;}
+  .stat-card{padding:18px 18px; position:relative; overflow:hidden;}
+  .stat-label{font-size:12px; color:var(--ink-soft); font-weight:600;}
+  .stat-value{font-size:26px; font-weight:800; margin-top:6px;}
+  .stat-icon{position:absolute; left:16px; top:16px; opacity:0.12;}
+  .stat-icon svg{width:34px;height:34px;}
+
+  .grid-2{display:grid; grid-template-columns:1.3fr 1fr; gap:16px;}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th{text-align:right; font-size:11.5px; text-transform:none; color:var(--ink-soft); font-weight:700; padding:10px 12px; border-bottom:1px solid var(--line);}
+  td{padding:11px 12px; border-bottom:1px solid #EEF2F1; vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr.row-hover:hover{background:#FAFCFB;}
+
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px;}
+  .badge-normal{background:var(--mint-soft); color:var(--teal-deep);}
+  .badge-high{background:var(--red-soft); color:var(--red);}
+  .badge-low{background:var(--amber-soft); color:var(--amber);}
+
+  input, select, textarea{
+    font-family:inherit; font-size:13.5px; border:1px solid var(--line); border-radius:9px;
+    padding:9px 12px; background:#fff; color:var(--ink); width:100%;
+  }
+  input:focus, select:focus, textarea:focus{outline:none; border-color:var(--mint);}
+  label{font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:5px; display:block;}
+  .field{margin-bottom:13px;}
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .component-row{border:1px solid var(--line); border-radius:10px; padding:10px; background:#FAFCFB; position:relative;}
+  .component-row .field-row{grid-template-columns:1fr 1fr 1fr; gap:8px;}
+  .component-row input{font-size:12.5px; padding:8px 10px;}
+  .component-remove{position:absolute; top:8px; left:8px; background:none; border:none; color:var(--red); cursor:pointer; font-weight:800; font-size:14px; padding:2px 6px;}
+
+  .search-box{position:relative; max-width:320px;}
+  .search-box svg{position:absolute; right:12px; top:50%; transform:translateY(-50%); width:15px;height:15px; color:var(--ink-soft);}
+  .search-box input{padding-right:34px;}
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,25,24,0.45);
+    display:flex; align-items:center; justify-content:center; z-index:50;
+    padding:20px;
+  }
+  .modal{background:#fff; border-radius:16px; width:100%; max-width:560px; max-height:88vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.25);}
+  .modal-head{display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-bottom:1px solid var(--line);}
+  .modal-head h3{margin:0; font-size:16px; font-weight:800;}
+  .modal-body{padding:20px 22px;}
+  .modal-foot{padding:16px 22px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:10px;}
+  .icon-btn{background:none;border:none;cursor:pointer;color:var(--ink-soft);padding:4px;border-radius:6px;}
+  .icon-btn:hover{background:#F0F5F4;}
+  .icon-btn svg{width:18px;height:18px;}
+
+  /* reference range bar - signature element */
+  .range-wrap{width:150px;}
+  .range-track{position:relative; height:6px; background:#EAF1EF; border-radius:6px; margin-top:6px;}
+  .range-normal-band{position:absolute; top:0; bottom:0; background:var(--mint-soft); border-radius:6px;}
+  .range-marker{position:absolute; top:-4px; width:3px; height:14px; border-radius:3px; background:var(--ink);}
+  .range-marker.high{background:var(--red);}
+  .range-marker.low{background:var(--amber);}
+  .range-nums{display:flex; justify-content:space-between; font-size:10px; color:var(--ink-soft); margin-top:3px;}
+
+  .empty-state{text-align:center; padding:50px 20px; color:var(--ink-soft);}
+  .empty-state svg{width:40px;height:40px; opacity:.3; margin-bottom:12px;}
+
+  .tag-chip{display:inline-flex; align-items:center; gap:6px; background:#F0F5F4; border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:12.5px; font-weight:600; cursor:pointer;}
+  .tag-chip.active{background:var(--teal); color:#fff; border-color:var(--teal);}
+
+  .patient-history-card{border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px;}
+  .patient-history-card h4{margin:0 0 4px 0; font-size:14px;}
+
+  @media print{
+    .no-print{display:none !important;}
+    .sidebar{display:none !important;}
+    .main{padding:0 !important;}
+    body{background:#fff;}
+  }
+  @media (max-width: 900px){
+    .stat-row{grid-template-columns:repeat(2,1fr);}
+    .grid-2{grid-template-columns:1fr;}
+    .field-row{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN GATE -->
+<div id="loginGate" style="position:fixed;inset:0;background:linear-gradient(160deg, var(--teal-deep), var(--teal) 75%);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:18px;max-width:380px;width:100%;padding:30px 26px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:22px;">
+      <div style="width:38px;height:38px;border-radius:10px;background:var(--mint-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal-deep)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;"><path d="M9 2v6.5L4.5 17a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 8.5V2"/><path d="M9 2h6"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:800;font-size:16px;" id="loginLabName">تاقیگەی نیشتیمانی</div>
+        <div style="font-size:11.5px;color:var(--ink-soft);">چوونەژوورەوە پێویستە</div>
+      </div>
+    </div>
+
+    <div id="loginNeedsSetup" style="display:none;">
+      <p style="font-size:13px;color:var(--ink-soft);line-height:1.9;margin-bottom:14px;">Firebase هێشتا ڕێکنەخراوە لەم ئامێرەدا. تکایە زانیارییەکانی ڕێکخستن دابنێ.</p>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="skipToSettingsFromLogin()">چوونە ڕێکخستنەکان</button>
+    </div>
+
+    <div id="loginFormArea">
+      <div class="field"><label>ئیمەیل</label><input id="loginEmail" dir="ltr" style="text-align:left;" placeholder="name@example.com"></div>
+      <div class="field"><label>وشەی نهێنی</label><input id="loginPassword" type="password" dir="ltr" style="text-align:left;" placeholder="••••••••"></div>
+      <div id="loginError" style="display:none;background:var(--red-soft);color:var(--red);font-size:12.5px;padding:9px 12px;border-radius:9px;margin-bottom:12px;"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="doLogin()">چوونەژوورەوە</button>
+      <p style="font-size:11px;color:var(--ink-soft);margin-top:14px;line-height:1.8;">
+        هەژمار لە Firebase Console → Authentication → Users دروست دەکرێت.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar no-print">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#eaf4f2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6.5L4.5 17a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 8.5V2"/><path d="M9 2h6"/><path d="M8.5 14h7"/></svg>
+      </div>
+      <div>
+        <div class="brand-text" id="sidebarLabName">تاقیگەی نیشتیمانی</div>
+        <div class="brand-sub">سیستەمی بەڕێوەبردن</div>
+      </div>
+    </div>
+
+    <div class="nav-item active" data-page="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      داشبۆرد
+    </div>
+    <div class="nav-item" data-page="newtest">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      تاقیکردنەوەی نوێ
+    </div>
+    <div class="nav-item" data-page="patients">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      نەخۆشەکان
+    </div>
+    <div class="nav-item" data-page="catalog">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      کاتالۆگی تاقیکردنەوە
+    </div>
+    <div class="nav-item" data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      ڕێکخستنەکان
+    </div>
+
+    <div class="nav-spacer"></div>
+    <div class="sync-pill" id="syncPill">
+      <span class="dot off" id="syncDot"></span>
+      <span id="syncText">پەیوەندی نەکراوە</span>
+    </div>
+    <div class="nav-item no-print" id="logoutBtn" style="display:none;" onclick="doLogout()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      دەرچوون
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- ===== DASHBOARD ===== -->
+    <div id="page-dashboard">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">داشبۆرد</h1>
+          <div class="page-sub" id="todayDate"></div>
+        </div>
+        <button class="btn btn-primary no-print" onclick="goPage('newtest')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          تۆمارکردنی تاقیکردنەوەی نوێ
+        </button>
+      </div>
+
+      <div class="stat-row">
+        <div class="panel stat-card">
+          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+          <div class="stat-label">کۆی نەخۆشەکان</div>
+          <div class="stat-value" id="statPatients">0</div>
+        </div>
+        <div class="panel stat-card">
+          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M9 2v6.5L4.5 17a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 8.5V2"/></svg></div>
+          <div class="stat-label">تاقیکردنەوەی ئەمڕۆ</div>
+          <div class="stat-value" id="statToday">0</div>
+        </div>
+        <div class="panel stat-card">
+          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></div>
+          <div class="stat-label">ئەنجامی دەرەکی ئاسایی</div>
+          <div class="stat-value" id="statAbnormal">0</div>
+        </div>
+        <div class="panel stat-card">
+          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+          <div class="stat-label">جۆرەکانی تاقیکردنەوە</div>
+          <div class="stat-value" id="statTests">0</div>
+        </div>
+      </div>
+
+      <div class="panel panel-pad">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <h3 style="margin:0;font-size:15px;">دوایین تۆمارکراوەکان</h3>
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="dashSearch" placeholder="گەڕان بە ناوی نەخۆش...">
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>نەخۆش</th><th>تاقیکردنەوە</th><th>ئەنجام</th><th>دۆخ</th><th>بەروار</th><th></th></tr></thead>
+          <tbody id="recentTableBody"></tbody>
+        </table>
+        <div id="dashEmpty" class="empty-state" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 2v6.5L4.5 17a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 8.5V2"/></svg>
+          <div>هیچ تاقیکردنەوەیەک تۆمار نەکراوە</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== NEW TEST ===== -->
+    <div id="page-newtest" style="display:none;">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">تۆمارکردنی تاقیکردنەوەی نوێ</h1>
+          <div class="page-sub">زانیاری نەخۆش و ئەنجامی تاقیکردنەوە بنووسە</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel panel-pad">
+          <h3 style="margin-top:0;font-size:14px;">١. زانیاری نەخۆش</h3>
+          <div class="field">
+            <label>ناوی نەخۆش *</label>
+            <input id="ntPatientName" placeholder="ناوی تەواو" list="patientNameList">
+            <datalist id="patientNameList"></datalist>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>تەمەن</label><input id="ntAge" type="number" min="0" placeholder="24"></div>
+            <div class="field"><label>ڕەگەز</label>
+              <select id="ntGender"><option value="نێر">نێر</option><option value="مێ">مێ</option></select>
+            </div>
+          </div>
+          <div class="field"><label>ژمارەی مۆبایل</label><input id="ntPhone" placeholder="07xx xxx xxxx"></div>
+          <div class="field"><label>ناردراو لەلایەن (دکتۆر/کۆنتڕۆڵکەر)</label><input id="ntReferrer" placeholder="ناوی پزیشک - ئارەزوومەندانە"></div>
+
+          <h3 style="font-size:14px;margin-bottom:8px;">٢. تاقیکردنەوەکان</h3>
+          <div id="ntTestSelectArea"></div>
+          <button class="btn btn-soft btn-sm" style="margin-top:6px;" onclick="openTestPicker()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            زیادکردنی تاقیکردنەوە
+          </button>
+        </div>
+
+        <div class="panel panel-pad">
+          <h3 style="margin-top:0;font-size:14px;">٣. ئەنجامەکان</h3>
+          <div id="ntResultsArea">
+            <div class="empty-state" style="padding:30px 10px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <div>سەرەتا تاقیکردنەوە زیاد بکە</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:14px;" onclick="saveTestResult()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+            پاشەکەوتکردن
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PATIENTS ===== -->
+    <div id="page-patients" style="display:none;">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">نەخۆشەکان</h1>
+          <div class="page-sub">مێژووی تاقیکردنەوەکانی هەموو نەخۆشەکان</div>
+        </div>
+        <div class="search-box no-print">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="patientSearch" placeholder="گەڕان بە ناو یان مۆبایل...">
+        </div>
+      </div>
+      <div id="patientsList"></div>
+    </div>
+
+    <!-- ===== CATALOG ===== -->
+    <div id="page-catalog" style="display:none;">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">کاتالۆگی تاقیکردنەوەکان</h1>
+          <div class="page-sub">جۆرەکان و مەودای ئاسایی دیاری بکە</div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost no-print" onclick="seedDefaultTests()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.64L21 8"/><path d="M21 3v5h-5"/></svg>
+            زیادکردنی لیستی باو
+          </button>
+          <button class="btn btn-primary no-print" onclick="openCatalogModal(null)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            تاقیکردنەوەی نوێ
+          </button>
+        </div>
+      </div>
+      <div class="panel panel-pad">
+        <table>
+          <thead><tr><th>ناوی تاقیکردنەوە</th><th>یەکە</th><th>مەودای ئاسایی</th><th>نرخ (دینار)</th><th></th></tr></thead>
+          <tbody id="catalogTableBody"></tbody>
+        </table>
+        <div id="catalogEmpty" class="empty-state" style="display:none;">هیچ تاقیکردنەوەیەک زیاد نەکراوە</div>
+      </div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div id="page-settings" style="display:none;">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">ڕێکخستنەکان</h1>
+          <div class="page-sub">زانیاری تاقیگە و پەیوەندی بە Firebase</div>
+        </div>
+      </div>
+
+      <div class="panel panel-pad" style="max-width:640px;margin-bottom:20px;">
+        <h3 style="margin-top:0;font-size:14px;">زانیاری تاقیگە (بۆ وەرەقەی چاپکردن)</h3>
+        <div class="field"><label>ناوی تاقیگە</label><input id="labName" placeholder="تاقیگەی سینا"></div>
+        <div class="field"><label>ناونیشان</label><input id="labAddress" placeholder="شار، گەڕەک، نزیک لە..."></div>
+        <div class="field-row">
+          <div class="field"><label>ژمارەی مۆبایل</label><input id="labPhone" dir="ltr" style="text-align:left;" placeholder="07xx xxx xxxx"></div>
+          <div class="field"><label>لینکی واتساپ / گووگڵ ماپ (بۆ QR)</label><input id="labWhatsapp" dir="ltr" style="text-align:left;" placeholder="https://wa.me/... یان لینکی شوێن"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveLabInfo()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
+          پاشەکەوتکردن
+        </button>
+        <div id="labQrPreviewWrap" style="display:none;margin-top:16px;align-items:center;gap:14px;">
+          <img id="labQrPreview" style="width:90px;height:90px;border:1px solid var(--line);border-radius:8px;">
+          <div style="font-size:12px;color:var(--ink-soft);">ئەم QR کۆدە خۆکارانە لە وەرەقەی چاپکردندا دەردەکەوێت.</div>
+        </div>
+        <p style="font-size:11.5px;color:var(--ink-soft);margin-top:12px;line-height:1.8;">
+          ئەم زانیاریانە پاشەکەوت دەکرێن لە Firebase، بۆیە لە هەموو ئامێرەکاندا یەکسانن — تەنها یەکجار لێرە دایبنێ.
+        </p>
+      </div>
+
+      <div class="panel panel-pad" style="max-width:640px;">
+        <h3 style="margin-top:0;font-size:14px;">پەیوەندی Firebase</h3>
+        <div class="field"><label>apiKey</label><input id="cfgApiKey" dir="ltr" style="text-align:left;" placeholder="AIzaSy..."></div>
+        <div class="field-row">
+          <div class="field"><label>authDomain</label><input id="cfgAuthDomain" dir="ltr" style="text-align:left;" placeholder="project.firebaseapp.com"></div>
+          <div class="field"><label>projectId</label><input id="cfgProjectId" dir="ltr" style="text-align:left;" placeholder="project-id"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>storageBucket</label><input id="cfgStorageBucket" dir="ltr" style="text-align:left;" placeholder="project.appspot.com"></div>
+          <div class="field"><label>messagingSenderId</label><input id="cfgSenderId" dir="ltr" style="text-align:left;" placeholder="123456789"></div>
+        </div>
+        <div class="field"><label>appId</label><input id="cfgAppId" dir="ltr" style="text-align:left;" placeholder="1:123:web:abc"></div>
+        <button class="btn btn-primary" onclick="saveFirebaseConfig()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
+          پەیوەستکردن و پاشەکەوتکردن
+        </button>
+        <p style="font-size:12px;color:var(--ink-soft);margin-top:14px;line-height:1.9;">
+          ئەم زانیاریانە لە پرۆژەی Firebase Console وەردەگیرێت (Project Settings → General → Your apps).
+          دوای پەیوەستبوون، هەموو داتاکان بە شێوەی ئۆتۆماتیکی لەنێوان هەموو ئامێرەکانتدا هاوکات دەبن.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TEST PICKER MODAL -->
+<div class="modal-overlay no-print" id="testPickerOverlay" style="display:none;">
+  <div class="modal">
+    <div class="modal-head"><h3>هەڵبژاردنی تاقیکردنەوە</h3><button class="icon-btn" onclick="closeModal('testPickerOverlay')">✕</button></div>
+    <div class="modal-body">
+      <div class="search-box" style="max-width:100%;margin-bottom:14px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="testPickerSearch" placeholder="گەڕان...">
+      </div>
+      <div id="testPickerList" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CATALOG EDIT MODAL -->
+<div class="modal-overlay no-print" id="catalogModalOverlay" style="display:none;">
+  <div class="modal">
+    <div class="modal-head"><h3 id="catalogModalTitle">تاقیکردنەوەی نوێ</h3><button class="icon-btn" onclick="closeModal('catalogModalOverlay')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="catEditId">
+      <div class="field"><label>ناوی تاقیکردنەوە *</label><input id="catName" placeholder="بۆ نموونە: خوێن گشتی CBC یان شیکاری میز"></div>
+      <div class="field"><label>نرخ (دینار)</label><input id="catPrice" type="number" placeholder="5000"></div>
+
+      <label style="margin-top:4px;">خانەکانی ئەنجام (پارامیتەرەکان)</label>
+      <p style="font-size:11.5px;color:var(--ink-soft);margin-top:-2px;">ئەگەر تاقیکردنەوەکە چەند پارامیتەری هەیە (وەک شیکاری میز کە ٩+ خانەی هەیە)، هەر خانەیەک بە دوگمەی خوارەوە زیاد بکە. ئەگەر ژمارە نییە، مەودای ئاسایی بەتاڵ بهێڵەوە.</p>
+      <div id="catComponentsArea" style="display:flex;flex-direction:column;gap:10px;margin-top:8px;"></div>
+      <button type="button" class="btn btn-soft btn-sm" style="margin-top:10px;" onclick="addComponentRow()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        زیادکردنی خانەی ئەنجام
+      </button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('catalogModalOverlay')">پاشگەزبوونەوە</button>
+      <button class="btn btn-primary" onclick="saveCatalogItem()">پاشەکەوتکردن</button>
+    </div>
+  </div>
+</div>
+
+<!-- PATIENT DETAIL MODAL -->
+<div class="modal-overlay no-print" id="patientDetailOverlay" style="display:none;">
+  <div class="modal" style="max-width:680px;">
+    <div class="modal-head"><h3 id="pdName">نەخۆش</h3><button class="icon-btn" onclick="closeModal('patientDetailOverlay')">✕</button></div>
+    <div class="modal-body" id="pdBody"></div>
+  </div>
+</div>
+
+<script>
+/* ================= STATE ================= */
+let db = null;
+let firebaseReady = false;
+let tests = [];      // catalog: {id, name, unit, min, max, price}
+let records = [];    // saved test results: {id, patientName, age, gender, phone, referrer, items:[{testId,name,unit,min,max,value}], date}
+let unsubTests = null, unsubRecords = null, unsubLabInfo = null;
+let labInfo = {name:'', address:'', phone:'', whatsapp:''};
+let pendingTests = []; // in the "new test" form, list of {testId,name,unit,min,max}
+
+/* ================= INIT ================= */
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('todayDate').textContent = new Intl.DateTimeFormat('ckb', {weekday:'long', year:'numeric', month:'long', day:'numeric'}).format(new Date());
+  loadLocalConfig();
+  bindNav();
+  document.getElementById('dashSearch').addEventListener('input', renderDashboard);
+  document.getElementById('patientSearch').addEventListener('input', renderPatients);
+  document.getElementById('testPickerSearch').addEventListener('input', renderTestPicker);
+  document.getElementById('loginPassword').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+});
+
+function bindNav(){
+  document.querySelectorAll('.nav-item[data-page]').forEach(el=>{
+    el.addEventListener('click', ()=> goPage(el.dataset.page));
+  });
+}
+function goPage(page){
+  document.querySelectorAll('[id^="page-"]').forEach(p=>p.style.display='none');
+  document.getElementById('page-'+page).style.display='block';
+  document.querySelectorAll('.nav-item[data-page]').forEach(n=>n.classList.toggle('active', n.dataset.page===page));
+  if(page==='patients') renderPatients();
+  if(page==='catalog') renderCatalog();
+  if(page==='dashboard') renderDashboard();
+  if(page==='newtest') renderNewTestForm();
+}
+
+/* ================= FIREBASE / LOGIN ================= */
+// Baked-in default so anyone who receives this file connects automatically
+// to the same shared Firebase project — no manual setup needed on other devices.
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBivW9YXt8tVeeLwPOnNr4gCOnWVgHZxZY",
+  authDomain: "pharmacy-lab-9f0a9.firebaseapp.com",
+  projectId: "pharmacy-lab-9f0a9",
+  storageBucket: "pharmacy-lab-9f0a9.firebasestorage.app",
+  messagingSenderId: "36134703348",
+  appId: "1:36134703348:web:ec65f73d2288b8d1a18ea1"
+};
+function loadLocalConfig(){
+  const raw = localStorage.getItem('lab_firebase_config');
+  let cfg = null;
+  if(raw){
+    try{ cfg = JSON.parse(raw); }catch(e){ cfg = null; }
+  }
+  if(!cfg && DEFAULT_FIREBASE_CONFIG.apiKey){
+    cfg = DEFAULT_FIREBASE_CONFIG;
+  }
+  if(cfg){
+    document.getElementById('cfgApiKey').value = cfg.apiKey||'';
+    document.getElementById('cfgAuthDomain').value = cfg.authDomain||'';
+    document.getElementById('cfgProjectId').value = cfg.projectId||'';
+    document.getElementById('cfgStorageBucket').value = cfg.storageBucket||'';
+    document.getElementById('cfgSenderId').value = cfg.messagingSenderId||'';
+    document.getElementById('cfgAppId').value = cfg.appId||'';
+    initFirebase(cfg);
+  }else{
+    // no config at all: show setup prompt on the login gate
+    document.getElementById('loginNeedsSetup').style.display='block';
+    document.getElementById('loginFormArea').style.display='none';
+  }
+}
+function saveFirebaseConfig(){
+  const cfg = {
+    apiKey: document.getElementById('cfgApiKey').value.trim(),
+    authDomain: document.getElementById('cfgAuthDomain').value.trim(),
+    projectId: document.getElementById('cfgProjectId').value.trim(),
+    storageBucket: document.getElementById('cfgStorageBucket').value.trim(),
+    messagingSenderId: document.getElementById('cfgSenderId').value.trim(),
+    appId: document.getElementById('cfgAppId').value.trim(),
+  };
+  if(!cfg.apiKey || !cfg.projectId){
+    alert('تکایە هەموو خانەکان پڕبکەرەوە'); return;
+  }
+  localStorage.setItem('lab_firebase_config', JSON.stringify(cfg));
+  document.getElementById('loginNeedsSetup').style.display='none';
+  document.getElementById('loginFormArea').style.display='block';
+  initFirebase(cfg);
+  alert('ڕێکخستنەکان پاشەکەوتکران. ئێستا لە پەڕەی چوونەژوورەوە بچۆرەوە ژوورەوە.');
+}
+function setSync(state, text){
+  const dot = document.getElementById('syncDot');
+  dot.className = 'dot' + (state==='on'?'':state==='err'?' err':' off');
+  document.getElementById('syncText').textContent = text;
+}
+function initFirebase(cfg){
+  try{
+    if(firebase.apps.length){ firebase.apps.forEach(a=>a.delete()); }
+    firebase.initializeApp(cfg);
+    db = firebase.firestore();
+    firebase.auth().onAuthStateChanged(user=>{
+      if(user){
+        firebaseReady = true;
+        setSync('on','هاوکاتکراو');
+        document.getElementById('loginGate').style.display='none';
+        document.getElementById('logoutBtn').style.display='flex';
+        attachListeners();
+      }else{
+        firebaseReady = false;
+        setSync('off','پێویستە چوونەژوورەوە');
+        document.getElementById('loginGate').style.display='flex';
+        document.getElementById('logoutBtn').style.display='none';
+      }
+    });
+  }catch(e){
+    console.error(e);
+    setSync('err', 'هەڵە: ' + (e.message || 'نەزانراو'));
+  }
+}
+function attachListeners(){
+  if(unsubTests) unsubTests();
+  if(unsubRecords) unsubRecords();
+  if(unsubLabInfo) unsubLabInfo();
+  unsubTests = db.collection('tests').onSnapshot(snap=>{
+    tests = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    renderCatalog(); renderDashboard();
+  }, err=>{ console.error(err); setSync('err','هەڵەی هاوکاتکردن'); });
+
+  unsubRecords = db.collection('records').orderBy('createdAt','desc').onSnapshot(snap=>{
+    records = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    renderDashboard(); renderPatients();
+  }, err=>{ console.error(err); setSync('err','هەڵەی هاوکاتکردن'); });
+
+  unsubLabInfo = db.collection('settings').doc('labInfo').onSnapshot(doc=>{
+    labInfo = doc.exists ? doc.data() : {name:'', address:'', phone:'', whatsapp:''};
+    renderLabInfoUI();
+  }, err=>{ console.error(err); });
+}
+function renderLabInfoUI(){
+  const displayName = labInfo.name || 'تاقیگەی نیشتیمانی';
+  document.getElementById('sidebarLabName').textContent = displayName;
+  document.getElementById('loginLabName').textContent = displayName;
+  document.title = displayName;
+  document.getElementById('labName').value = labInfo.name || '';
+  document.getElementById('labAddress').value = labInfo.address || '';
+  document.getElementById('labPhone').value = labInfo.phone || '';
+  document.getElementById('labWhatsapp').value = labInfo.whatsapp || '';
+  const qrData = labInfo.whatsapp || labInfo.address || '';
+  const qrWrap = document.getElementById('labQrPreviewWrap');
+  if(qrData){
+    document.getElementById('labQrPreview').src = qrUrl(qrData, 90);
+    qrWrap.style.display='flex';
+  }else{
+    qrWrap.style.display='none';
+  }
+}
+function qrUrl(data, size){
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
+}
+async function saveLabInfo(){
+  if(!requireFirebase()) return;
+  const payload = {
+    name: document.getElementById('labName').value.trim(),
+    address: document.getElementById('labAddress').value.trim(),
+    phone: document.getElementById('labPhone').value.trim(),
+    whatsapp: document.getElementById('labWhatsapp').value.trim(),
+  };
+  try{
+    await db.collection('settings').doc('labInfo').set(payload, {merge:true});
+    alert('زانیاری تاقیگە پاشەکەوتکرا');
+  }catch(e){ console.error(e); alert('هەڵەیەک ڕوویدا لە پاشەکەوتکردن'); }
+}
+function skipToSettingsFromLogin(){
+  document.getElementById('loginGate').style.display='none';
+  goPage('settings');
+}
+async function doLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errBox = document.getElementById('loginError');
+  errBox.style.display='none';
+  if(!email || !password){ errBox.textContent='ئیمەیل و وشەی نهێنی داخڵ بکە'; errBox.style.display='block'; return; }
+  if(!firebase.apps.length){ errBox.textContent='سەرەتا Firebase ڕێکبخە لە ڕێکخستنەکان'; errBox.style.display='block'; return; }
+  try{
+    await firebase.auth().signInWithEmailAndPassword(email, password);
+  }catch(e){
+    errBox.textContent = 'هەڵە: ' + (e.code || e.message || 'نەزانراو');
+    errBox.style.display='block';
+  }
+}
+function doLogout(){
+  if(!confirm('دەتەوێت دەربچیت؟')) return;
+  firebase.auth().signOut();
+}
+
+/* ================= CATALOG ================= */
+function getTestComponents(t){
+  if(t.components && t.components.length) return t.components;
+  return [{name:t.name, unit:t.unit ?? null, min:t.min ?? null, max:t.max ?? null}];
+}
+function getItemComponents(item){
+  if(item.components && item.components.length) return item.components;
+  return [{name:item.name, unit:item.unit ?? null, min:item.min ?? null, max:item.max ?? null, value:item.value}];
+}
+function componentLabel(item, comp){
+  const comps = getItemComponents(item);
+  return comps.length>1 ? `${item.name} — ${comp.name}` : item.name;
+}
+
+function addComponentRow(comp){
+  comp = comp || {name:'', unit:'', min:'', max:''};
+  const area = document.getElementById('catComponentsArea');
+  const div = document.createElement('div');
+  div.className = 'component-row';
+  div.innerHTML = `
+    <button type="button" class="component-remove" onclick="this.parentElement.remove()" title="سڕینەوە">✕</button>
+    <div class="field" style="margin-bottom:8px;"><label style="font-size:11px;">ناوی پارامیتەر</label><input class="comp-name" placeholder="وەک: پرۆتین Protein" value="${escapeHtml(comp.name||'')}"></div>
+    <div class="field-row" style="margin-bottom:0;">
+      <div class="field" style="margin-bottom:0;"><label style="font-size:11px;">یەکە</label><input class="comp-unit" placeholder="mg/dL" value="${escapeHtml(comp.unit||'')}"></div>
+      <div class="field" style="margin-bottom:0;"><label style="font-size:11px;">کەمترین</label><input class="comp-min" type="number" step="any" placeholder="—" value="${comp.min??''}"></div>
+      <div class="field" style="margin-bottom:0;"><label style="font-size:11px;">زۆرترین</label><input class="comp-max" type="number" step="any" placeholder="—" value="${comp.max??''}"></div>
+    </div>`;
+  area.appendChild(div);
+}
+
+function openCatalogModal(id){
+  document.getElementById('catEditId').value = id||'';
+  document.getElementById('catComponentsArea').innerHTML = '';
+  if(id){
+    const t = tests.find(x=>x.id===id);
+    document.getElementById('catalogModalTitle').textContent = 'دەستکاریکردنی تاقیکردنەوە';
+    document.getElementById('catName').value = t.name||'';
+    document.getElementById('catPrice').value = t.price ?? '';
+    getTestComponents(t).forEach(c=>addComponentRow(c));
+  }else{
+    document.getElementById('catalogModalTitle').textContent = 'تاقیکردنەوەی نوێ';
+    document.getElementById('catName').value='';
+    document.getElementById('catPrice').value='';
+    addComponentRow();
+  }
+  document.getElementById('catalogModalOverlay').style.display='flex';
+}
+function closeModal(id){ document.getElementById(id).style.display='none'; }
+
+async function saveCatalogItem(){
+  const name = document.getElementById('catName').value.trim();
+  if(!name){ alert('ناوی تاقیکردنەوە داخڵ بکە'); return; }
+  const rows = document.querySelectorAll('#catComponentsArea .component-row');
+  const components = [];
+  rows.forEach(row=>{
+    const cname = row.querySelector('.comp-name').value.trim();
+    const unit = row.querySelector('.comp-unit').value.trim();
+    const minV = row.querySelector('.comp-min').value;
+    const maxV = row.querySelector('.comp-max').value;
+    components.push({
+      name: cname || name,
+      unit: unit || null,
+      min: minV===''? null: parseFloat(minV),
+      max: maxV===''? null: parseFloat(maxV),
+    });
+  });
+  if(!components.length){ alert('لانیکەم یەک خانەی ئەنجام زیاد بکە'); return; }
+  const payload = {
+    name,
+    price: document.getElementById('catPrice').value===''? null: parseFloat(document.getElementById('catPrice').value),
+    components,
+  };
+  const editId = document.getElementById('catEditId').value;
+  if(!requireFirebase()) return;
+  try{
+    if(editId){
+      await db.collection('tests').doc(editId).update(payload);
+    }else{
+      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      await db.collection('tests').add(payload);
+    }
+    closeModal('catalogModalOverlay');
+  }catch(e){ console.error(e); alert('هەڵەیەک ڕوویدا لە پاشەکەوتکردن'); }
+}
+const DEFAULT_TESTS = [
+  // خوێن گشتی CBC
+  {name:'خوێن گشتی WBC', unit:'x10^3/µL', min:4, max:11},
+  {name:'خوێن سوور RBC', unit:'x10^6/µL', min:4.2, max:5.9},
+  {name:'هیمۆگلۆبین Hemoglobin (HGB)', unit:'g/dL', min:12, max:17},
+  {name:'هیماتۆکریت Hematocrit (HCT)', unit:'%', min:36, max:52},
+  {name:'پلاتلێت Platelets', unit:'x10^3/µL', min:150, max:450},
+  {name:'MCV', unit:'fL', min:80, max:100},
+  {name:'MCH', unit:'pg', min:27, max:33},
+  {name:'MCHC', unit:'g/dL', min:32, max:36},
+  // شەکر
+  {name:'شەکری خوێن ناسک FBS', unit:'mg/dL', min:70, max:110},
+  {name:'شەکری خوێن ڕاندۆم RBS', unit:'mg/dL', min:70, max:140},
+  {name:'HbA1c', unit:'%', min:4, max:5.6},
+  // چاوگی گورچیلە
+  {name:'یوریا Urea', unit:'mg/dL', min:10, max:50},
+  {name:'کریاتینین Creatinine', unit:'mg/dL', min:0.6, max:1.3},
+  {name:'ئاسید ئوریک Uric Acid', unit:'mg/dL', min:3.4, max:7},
+  // چاوگی جگەر
+  {name:'ALT (SGPT)', unit:'U/L', min:7, max:56},
+  {name:'AST (SGOT)', unit:'U/L', min:10, max:40},
+  {name:'ALP', unit:'U/L', min:44, max:147},
+  {name:'بیلیروبین گشتی Total Bilirubin', unit:'mg/dL', min:0.1, max:1.2},
+  {name:'پرۆتینی گشتی Total Protein', unit:'g/dL', min:6.4, max:8.3},
+  {name:'ئەلبیومین Albumin', unit:'g/dL', min:3.5, max:5},
+  // چەوری خوێن
+  {name:'کۆلیستڕۆڵی گشتی Cholesterol', unit:'mg/dL', min:0, max:200},
+  {name:'تڕایگلیسراید Triglycerides', unit:'mg/dL', min:0, max:150},
+  {name:'HDL', unit:'mg/dL', min:40, max:60},
+  {name:'LDL', unit:'mg/dL', min:0, max:100},
+  // چاوگی گلاندی دەرقی
+  {name:'TSH', unit:'µIU/mL', min:0.4, max:4},
+  {name:'T3', unit:'ng/dL', min:80, max:200},
+  {name:'T4', unit:'µg/dL', min:5, max:12},
+  // خوێن گشتی تر
+  {name:'ESR', unit:'mm/hr', min:0, max:20},
+  {name:'CRP', unit:'mg/L', min:0, max:6},
+  {name:'گرووپی خوێن Blood Group', unit:null, min:null, max:null},
+  {name:'تاقیکردنەوەی دووگیانی Pregnancy Test', unit:null, min:null, max:null},
+  {name:'شاشەی ئێدزی HIV', unit:null, min:null, max:null},
+  {name:'شاشەی جگەری B HBsAg', unit:null, min:null, max:null},
+  {name:'شاشەی جگەری C HCV', unit:null, min:null, max:null},
+  // میز - General Urine Examination (GUE)
+  {name:'ڕەنگی میز Urine Color', unit:null, min:null, max:null},
+  {name:'ڕوونی میز Urine Appearance', unit:null, min:null, max:null},
+  {name:'کێشی تایبەت Specific Gravity', unit:null, min:1.005, max:1.030},
+  {name:'pH میز', unit:null, min:4.5, max:8},
+  {name:'پرۆتین Protein (Urine)', unit:null, min:null, max:null},
+  {name:'شەکر Glucose (Urine)', unit:null, min:null, max:null},
+  {name:'کیتۆن Ketones (Urine)', unit:null, min:null, max:null},
+  {name:'خوێن Blood (Urine)', unit:null, min:null, max:null},
+  {name:'بیلیروبین Bilirubin (Urine)', unit:null, min:null, max:null},
+  {name:'یوروبیلینۆجین Urobilinogen', unit:'mg/dL', min:0.2, max:1},
+  {name:'نایترایت Nitrite', unit:null, min:null, max:null},
+  {name:'لیوکۆسایت ئیستریز Leukocyte Esterase', unit:null, min:null, max:null},
+  {name:'خوێن سوور لەژێر مایکرۆسکۆپ RBC (Urine)', unit:'/HPF', min:0, max:2},
+  {name:'خوێن سپی لەژێر مایکرۆسکۆپ WBC (Urine)', unit:'/HPF', min:0, max:5},
+  {name:'خانەی ئێپیتیلیال Epithelial Cells', unit:'/HPF', min:null, max:null},
+  {name:'کاست Casts', unit:'/LPF', min:null, max:null},
+  {name:'کریستاڵ Crystals', unit:null, min:null, max:null},
+  {name:'بەکتریا Bacteria (Urine)', unit:null, min:null, max:null},
+  {name:'میوکەس Mucus Threads', unit:null, min:null, max:null},
+];
+
+async function seedDefaultTests(){
+  if(!requireFirebase()) return;
+  const existingNames = new Set(tests.map(t=>t.name));
+  const toAdd = DEFAULT_TESTS.filter(t=>!existingNames.has(t.name));
+  if(!toAdd.length){ alert('هەموو تاقیکردنەوە باوەکان پێشتر لە کاتالۆگدا هەن'); return; }
+  if(!confirm(`${toAdd.length} تاقیکردنەوەی باو زیاد دەکرێت (نرخیان بەتاڵە، دواتر دەتوانیت دیاری بکەیت). بەردەوام بیت؟`)) return;
+  try{
+    const batch = db.batch();
+    toAdd.forEach(t=>{
+      const ref = db.collection('tests').doc();
+      batch.set(ref, {name:t.name, price:null, components:[{name:t.name, unit:t.unit, min:t.min, max:t.max}], createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    });
+    await batch.commit();
+    alert(`${toAdd.length} تاقیکردنەوە زیادکرا`);
+  }catch(e){ console.error(e); alert('هەڵەیەک ڕوویدا لە زیادکردنی لیستی باو'); }
+}
+
+async function deleteCatalogItem(id){
+  if(!confirm('دڵنیایت لە سڕینەوە؟')) return;
+  if(!requireFirebase()) return;
+  await db.collection('tests').doc(id).delete();
+}
+function renderCatalog(){
+  const body = document.getElementById('catalogTableBody');
+  const empty = document.getElementById('catalogEmpty');
+  body.innerHTML = '';
+  if(!tests.length){ empty.style.display='block'; return; } else empty.style.display='none';
+  tests.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).forEach(t=>{
+    const comps = getTestComponents(t);
+    const isPanel = comps.length>1;
+    const unitCell = isPanel ? `${comps.length} پارامیتەر` : escapeHtml(comps[0].unit||'—');
+    const rangeCell = isPanel ? '—' : (comps[0].min!=null && comps[0].max!=null ? `${comps[0].min} - ${comps[0].max}` : '—');
+    const tr = document.createElement('tr');
+    tr.className='row-hover';
+    tr.innerHTML = `
+      <td style="font-weight:600;">${escapeHtml(t.name)}</td>
+      <td>${unitCell}</td>
+      <td>${rangeCell}</td>
+      <td>${t.price!=null ? formatNum(t.price) : '—'}</td>
+      <td style="white-space:nowrap;">
+        <button class="icon-btn" onclick="openCatalogModal('${t.id}')" title="دەستکاری">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+        </button>
+        <button class="icon-btn" onclick="deleteCatalogItem('${t.id}')" title="سڕینەوە">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>
+        </button>
+      </td>`;
+    body.appendChild(tr);
+  });
+}
+
+/* ================= NEW TEST FORM ================= */
+function renderNewTestForm(){
+  const dl = document.getElementById('patientNameList');
+  const uniqueNames = [...new Set(records.map(r=>r.patientName))];
+  dl.innerHTML = uniqueNames.map(n=>`<option value="${escapeHtml(n)}">`).join('');
+  renderPendingTests();
+}
+function openTestPicker(){
+  if(!tests.length){ alert('سەرەتا لە بەشی «کاتالۆگی تاقیکردنەوە» چەند تاقیکردنەوەیەک زیاد بکە'); return; }
+  document.getElementById('testPickerSearch').value='';
+  renderTestPicker();
+  document.getElementById('testPickerOverlay').style.display='flex';
+}
+function renderTestPicker(){
+  const q = document.getElementById('testPickerSearch').value.trim().toLowerCase();
+  const list = document.getElementById('testPickerList');
+  list.innerHTML='';
+  tests.filter(t=>t.name.toLowerCase().includes(q)).forEach(t=>{
+    const already = pendingTests.some(p=>p.testId===t.id);
+    const comps = getTestComponents(t);
+    const div = document.createElement('div');
+    div.className = 'tag-chip' + (already?' active':'');
+    div.style.justifyContent='space-between';
+    div.style.width='100%';
+    div.innerHTML = `<span>${escapeHtml(t.name)}</span><span style="opacity:.7;font-size:11px;">${comps.length>1? comps.length+' پارامیتەر' : (comps[0].unit||'')}</span>`;
+    div.onclick = ()=> toggleTestInPicker(t);
+    list.appendChild(div);
+  });
+}
+function toggleTestInPicker(t){
+  const idx = pendingTests.findIndex(p=>p.testId===t.id);
+  if(idx>=0){ pendingTests.splice(idx,1); }
+  else{
+    const comps = getTestComponents(t);
+    pendingTests.push({testId:t.id, name:t.name, components: comps.map(c=>({name:c.name, unit:c.unit||null, min:c.min??null, max:c.max??null, value:''}))});
+  }
+  renderTestPicker();
+  renderPendingTests();
+}
+function renderPendingTests(){
+  const area = document.getElementById('ntTestSelectArea');
+  if(!pendingTests.length){
+    area.innerHTML = `<div style="font-size:12.5px;color:var(--ink-soft);padding:8px 0;">هیچ تاقیکردنەوەیەک هەڵنەبژێردراوە</div>`;
+  } else {
+    area.innerHTML = pendingTests.map(p=>`
+      <div class="tag-chip active" style="margin-inline-end:6px;margin-bottom:6px;">
+        ${escapeHtml(p.name)}${p.components.length>1?` <span style="opacity:.75;font-weight:500;">(${p.components.length})</span>`:''}
+        <span onclick="event.stopPropagation(); removePendingTest('${p.testId}')" style="cursor:pointer;font-weight:800;">✕</span>
+      </div>`).join('');
+  }
+  renderResultsInputs();
+}
+function removePendingTest(testId){
+  pendingTests = pendingTests.filter(p=>p.testId!==testId);
+  renderPendingTests();
+}
+function renderResultsInputs(){
+  const area = document.getElementById('ntResultsArea');
+  if(!pendingTests.length){
+    area.innerHTML = `<div class="empty-state" style="padding:30px 10px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <div>سەرەتا تاقیکردنەوە زیاد بکە</div></div>`;
+    return;
+  }
+  area.innerHTML = pendingTests.map((p,i)=>{
+    const compsHtml = p.components.map((c,j)=>`
+      <div class="field" style="margin-bottom:10px;">
+        <label>${escapeHtml(c.name)} ${c.unit?`<span style="font-weight:400;color:var(--ink-soft);">(${escapeHtml(c.unit)})</span>`:''}</label>
+        <input data-pidx="${i}" data-cidx="${j}" class="pending-value-input" placeholder="${c.min!=null&&c.max!=null? 'مەودای ئاسایی: '+c.min+' - '+c.max : 'ئەنجام'}" value="${escapeHtml(c.value||'')}">
+      </div>`).join('');
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;">
+      ${p.components.length>1?`<div style="font-weight:700;font-size:13.5px;margin-bottom:10px;color:var(--teal-deep);">${escapeHtml(p.name)}</div>`:''}
+      ${compsHtml}
+    </div>`;
+  }).join('');
+  area.querySelectorAll('.pending-value-input').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const pi = +e.target.dataset.pidx, ci = +e.target.dataset.cidx;
+      pendingTests[pi].components[ci].value = e.target.value;
+    });
+  });
+}
+
+async function saveTestResult(){
+  const name = document.getElementById('ntPatientName').value.trim();
+  if(!name){ alert('ناوی نەخۆش داخڵ بکە'); return; }
+  if(!pendingTests.length){ alert('لانیکەم یەک تاقیکردنەوە زیاد بکە'); return; }
+  const missing = pendingTests.some(p=>p.components.some(c=>!c.value || !c.value.toString().trim()));
+  if(missing && !confirm('هەندێک ئەنجام بەتاڵن، دەتەوێت بەردەوام بیت؟')) return;
+
+  const payload = {
+    patientName: name,
+    age: document.getElementById('ntAge').value || null,
+    gender: document.getElementById('ntGender').value,
+    phone: document.getElementById('ntPhone').value.trim(),
+    referrer: document.getElementById('ntReferrer').value.trim(),
+    items: pendingTests.map(p=>({testId:p.testId, name:p.name, components:p.components.map(c=>({name:c.name, unit:c.unit||null, min:c.min??null, max:c.max??null, value:c.value}))})),
+    date: new Date().toISOString(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  };
+  if(!requireFirebase()) return;
+  try{
+    await db.collection('records').add(payload);
+    // reset form
+    document.getElementById('ntPatientName').value='';
+    document.getElementById('ntAge').value='';
+    document.getElementById('ntPhone').value='';
+    document.getElementById('ntReferrer').value='';
+    pendingTests = [];
+    renderPendingTests();
+    goPage('dashboard');
+  }catch(e){ console.error(e); alert('هەڵەیەک ڕوویدا لە پاشەکەوتکردن'); }
+}
+
+/* ================= DASHBOARD ================= */
+function renderDashboard(){
+  document.getElementById('statTests').textContent = tests.length;
+  const uniquePatients = new Set(records.map(r=>r.patientName)).size;
+  document.getElementById('statPatients').textContent = uniquePatients;
+  const todayStr = new Date().toDateString();
+  const todayCount = records.filter(r=> r.date && new Date(r.date).toDateString()===todayStr).length;
+  document.getElementById('statToday').textContent = todayCount;
+  let abnormalCount = 0;
+  records.forEach(r=> (r.items||[]).forEach(it=> getItemComponents(it).forEach(comp=>{ if(getFlag(comp)!=='normal' && getFlag(comp)!==null) abnormalCount++; })));
+  document.getElementById('statAbnormal').textContent = abnormalCount;
+
+  const q = (document.getElementById('dashSearch').value||'').trim().toLowerCase();
+  const body = document.getElementById('recentTableBody');
+  const empty = document.getElementById('dashEmpty');
+  body.innerHTML = '';
+  let filtered = records.filter(r=> r.patientName.toLowerCase().includes(q));
+  if(!filtered.length){ empty.style.display='block'; return; } else empty.style.display='none';
+
+  filtered.slice(0,25).forEach(r=>{
+    (r.items||[]).forEach(it=>{
+      getItemComponents(it).forEach(comp=>{
+        const flag = getFlag(comp);
+        const tr = document.createElement('tr');
+        tr.className='row-hover';
+        tr.innerHTML = `
+          <td style="font-weight:600;cursor:pointer;" onclick="openPatientDetail('${escapeHtml(r.patientName)}')">${escapeHtml(r.patientName)}</td>
+          <td>${escapeHtml(componentLabel(it, comp))}</td>
+          <td class="mono">${escapeHtml(String(comp.value))} ${comp.unit?escapeHtml(comp.unit):''}</td>
+          <td>${flagBadge(flag)}</td>
+          <td style="color:var(--ink-soft);font-size:12.5px;">${formatDate(r.date)}</td>
+          <td><button class="icon-btn no-print" onclick="printRecord('${r.id}')" title="چاپکردن">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+          </button></td>`;
+        body.appendChild(tr);
+      });
+    });
+  });
+}
+function getFlag(item){
+  if(item.min==null || item.max==null) return null;
+  const v = parseFloat(item.value);
+  if(isNaN(v)) return null;
+  if(v>item.max) return 'high';
+  if(v<item.min) return 'low';
+  return 'normal';
+}
+function flagBadge(flag){
+  if(flag==='high') return `<span class="badge badge-high">بەرز</span>`;
+  if(flag==='low') return `<span class="badge badge-low">نزم</span>`;
+  if(flag==='normal') return `<span class="badge badge-normal">ئاسایی</span>`;
+  return `<span style="color:var(--ink-soft);font-size:12px;">—</span>`;
+}
+
+/* ================= PATIENTS ================= */
+function renderPatients(){
+  const q = (document.getElementById('patientSearch').value||'').trim().toLowerCase();
+  const map = {};
+  records.forEach(r=>{
+    if(!r.patientName.toLowerCase().includes(q) && !(r.phone||'').includes(q)) return;
+    if(!map[r.patientName]) map[r.patientName] = [];
+    map[r.patientName].push(r);
+  });
+  const container = document.getElementById('patientsList');
+  const names = Object.keys(map);
+  if(!names.length){
+    container.innerHTML = `<div class="panel"><div class="empty-state">هیچ نەخۆشێک نەدۆزرایەوە</div></div>`;
+    return;
+  }
+  container.innerHTML = names.map(name=>{
+    const list = map[name];
+    const last = list[0];
+    return `<div class="patient-history-card panel row-hover" style="cursor:pointer;" onclick="openPatientDetail('${escapeHtml(name)}')">
+      <h4>${escapeHtml(name)}</h4>
+      <div style="font-size:12.5px;color:var(--ink-soft);">
+        ${last.age?('تەمەن '+escapeHtml(String(last.age))+' • '):''}${escapeHtml(last.gender||'')} ${last.phone?(' • '+escapeHtml(last.phone)):''}
+      </div>
+      <div style="font-size:12px;color:var(--ink-soft);margin-top:6px;">${list.length} تۆمار • دوایین جار: ${formatDate(last.date)}</div>
+    </div>`;
+  }).join('');
+}
+function openPatientDetail(name){
+  const list = records.filter(r=>r.patientName===name);
+  document.getElementById('pdName').textContent = name;
+  const body = document.getElementById('pdBody');
+  body.innerHTML = list.map(r=>`
+    <div class="patient-history-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong style="font-size:13px;">${formatDate(r.date)}</strong>
+        <button class="btn btn-ghost btn-sm no-print" onclick="printRecord('${r.id}')">چاپکردن</button>
+      </div>
+      <table style="margin-top:8px;">
+        <thead><tr><th>تاقیکردنەوە</th><th>ئەنجام</th><th>مەودای ئاسایی</th><th>دۆخ</th></tr></thead>
+        <tbody>
+        ${(r.items||[]).map(it=> getItemComponents(it).map(comp=>{
+          const flag = getFlag(comp);
+          return `<tr><td>${escapeHtml(componentLabel(it, comp))}</td><td class="mono">${escapeHtml(String(comp.value))} ${comp.unit?escapeHtml(comp.unit):''}</td><td class="mono" style="color:var(--ink-soft);">${comp.min!=null&&comp.max!=null?comp.min+' - '+comp.max:'—'}</td><td>${flagBadge(flag)}</td></tr>`;
+        }).join('')).join('')}
+        </tbody>
+      </table>
+    </div>
+  `).join('');
+  document.getElementById('patientDetailOverlay').style.display='flex';
+}
+
+/* ================= PRINT ================= */
+function printRecord(id){
+  const r = records.find(x=>x.id===id);
+  if(!r) return;
+  const w = window.open('', '_blank');
+
+  const sections = (r.items||[]).map(it=>{
+    const comps = getItemComponents(it);
+    const rowsHtml = comps.map(comp=>{
+      const flag = getFlag(comp);
+      const arrow = flag==='high' ? '<span class="flag-up">▲</span>' : flag==='low' ? '<span class="flag-down">▼</span>' : '';
+      const label = comps.length>1 ? comp.name : it.name;
+      return `<tr>
+        <td><span class="bullet">▪</span> ${escapeHtml(label)}</td>
+        <td>${arrow} ${escapeHtml(String(comp.value))}</td>
+        <td>${comp.unit?escapeHtml(comp.unit):'—'}</td>
+        <td>${comp.min!=null&&comp.max!=null?comp.min+' - '+comp.max:'—'}</td>
+      </tr>`;
+    }).join('');
+    return `<tr class="section-row"><td colspan="4">${escapeHtml(it.name)}</td></tr>${rowsHtml}`;
+  }).join('');
+
+  const qrData = labInfo.whatsapp || labInfo.address || '';
+  const qrImg = qrData ? `<img src="${qrUrl(qrData,84)}" style="width:78px;height:78px;">` : '';
+  const now = new Date();
+
+  w.document.write(`
+    <html dir="rtl" lang="ckb"><head><meta charset="UTF-8"><title>ڕاپۆرتی تاقیگە</title>
+    <style>
+      *{box-sizing:border-box;}
+      body{font-family:Arial, sans-serif; padding:36px 42px; color:#132524; font-size:13px;}
+      .report-header{display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:14px; border-bottom:3px solid #0F5257;}
+      .report-brand{display:flex; align-items:flex-start; gap:10px;}
+      .report-brand-icon{width:36px;height:36px;flex-shrink:0;}
+      .report-lab-name{font-size:19px; font-weight:800; color:#0A3B3F; margin:0;}
+      .report-lab-sub{font-size:11.5px; color:#3d5453; margin-top:2px;}
+      .report-qr-block{display:flex; align-items:center; gap:10px;}
+      .report-dates{font-size:11px; color:#3d5453; line-height:1.9; text-align:right;}
+      .patient-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; margin-top:16px; border:1px solid #d8e2e0; border-radius:6px; overflow:hidden;}
+      .patient-cell{padding:9px 12px; border-inline-end:1px solid #d8e2e0;}
+      .patient-cell:last-child{border-inline-end:none;}
+      .patient-cell b{display:block; font-size:10.5px; color:#3d5453; font-weight:700; margin-bottom:2px;}
+      .patient-cell span{font-size:13px; font-weight:600;}
+      .report-title{text-align:center; font-size:15px; font-weight:800; text-decoration:underline; text-underline-offset:5px; margin:22px 0 12px 0;}
+      table{width:100%; border-collapse:collapse;}
+      th,td{border:1px solid #ccc; padding:7px 10px; text-align:right; font-size:12.5px;}
+      th{background:#F0F5F4; font-size:11.5px;}
+      .section-row td{background:#e7f0ee; font-weight:800; font-size:12px; text-decoration:underline;}
+      .bullet{color:#0F5257; font-size:10px;}
+      .flag-up{color:#C1443A; font-weight:800;}
+      .flag-down{color:#C98A2C; font-weight:800;}
+      .report-footer{display:flex; justify-content:space-between; align-items:flex-end; margin-top:50px; padding-top:14px; border-top:1px solid #d8e2e0;}
+      .report-signature{font-size:12.5px; color:#3d5453;}
+      .report-contact{font-size:11.5px; color:#3d5453; line-height:1.9; text-align:left;}
+    </style></head><body>
+
+    <div class="report-header">
+      <div class="report-brand">
+        <svg class="report-brand-icon" viewBox="0 0 24 24" fill="none" stroke="#0F5257" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6.5L4.5 17a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L15 8.5V2"/><path d="M9 2h6"/><path d="M8.5 14h7"/></svg>
+        <div>
+          <div class="report-lab-name">${escapeHtml(labInfo.name || 'تاقیگەی نیشتیمانی')}</div>
+          <div class="report-lab-sub">بۆ شیکاری نەخۆشیەکان</div>
+        </div>
+      </div>
+      <div class="report-qr-block">
+        <div class="report-dates">
+          بەرواری داواکاری: ${formatDate(r.date)}<br>
+          بەرواری دەرکردن: ${new Intl.DateTimeFormat('ckb',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(now)}
+        </div>
+        ${qrImg}
+      </div>
+    </div>
+
+    <div class="patient-grid">
+      <div class="patient-cell"><b>ناوی نەخۆش</b><span>${escapeHtml(r.patientName)}</span></div>
+      <div class="patient-cell"><b>ڕەگەز / تەمەن</b><span>${escapeHtml(r.gender||'—')}${r.age?' - '+escapeHtml(String(r.age)):''}</span></div>
+      <div class="patient-cell"><b>ناردراو لەلایەن</b><span>${escapeHtml(r.referrer||'—')}</span></div>
+    </div>
+
+    <div class="report-title">ڕاپۆرتی تاقیگە &nbsp;Laboratory Report</div>
+
+    <table>
+      <thead><tr><th>تاقیکردنەوە</th><th>ئەنجام</th><th>یەکە</th><th>مەودای ئاسایی</th></tr></thead>
+      <tbody>${sections}</tbody>
+    </table>
+
+    <div class="report-footer">
+      <div class="report-signature">واژۆ: ______________________</div>
+      <div class="report-contact">
+        ${labInfo.address?escapeHtml(labInfo.address)+'<br>':''}
+        ${labInfo.phone?escapeHtml(labInfo.phone):''}
+      </div>
+    </div>
+
+    </body></html>
+  `);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(), 300);
+}
+
+/* ================= HELPERS ================= */
+function requireFirebase(){
+  if(!firebaseReady){
+    alert('سەرەتا لە بەشی «ڕێکخستنەکان» پەیوەندی بە Firebase بکە');
+    goPage('settings');
+    return false;
+  }
+  return true;
+}
+function escapeHtml(str){
+  if(str==null) return '';
+  return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function formatDate(iso){
+  if(!iso) return '—';
+  try{ return new Intl.DateTimeFormat('ckb', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(iso)); }
+  catch(e){ return iso; }
+}
+function formatNum(n){ return new Intl.NumberFormat('en-US').format(n); }
+</script>
+</body>
+</html>
