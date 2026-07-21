@@ -201,6 +201,28 @@
     .grid-2{grid-template-columns:1fr;}
     .field-row{grid-template-columns:1fr;}
   }
+  @media (max-width: 720px){
+    .app{flex-direction:column;}
+    .sidebar{
+      width:100%; height:auto; position:relative; top:auto;
+      flex-direction:row; flex-wrap:wrap; align-items:center;
+      padding:12px 14px; gap:6px;
+    }
+    .sidebar .brand{width:100%; padding:0 0 8px 0;}
+    .nav-item{flex:1 1 auto; justify-content:center; font-size:12px; padding:9px 6px; white-space:nowrap;}
+    .nav-item svg{width:15px;height:15px;}
+    .nav-spacer{display:none;}
+    .sync-pill{width:100%; justify-content:center; order:99;}
+    #logoutBtn{width:100%; justify-content:center;}
+    .main{padding:16px;}
+    .topbar{flex-direction:column; align-items:stretch;}
+    .stat-row{grid-template-columns:repeat(2,1fr); gap:10px;}
+    .stat-value{font-size:20px;}
+    table{font-size:12px;}
+    th,td{padding:8px 8px;}
+    .panel-pad{overflow-x:auto;}
+    .modal{max-width:96vw;}
+  }
 </style>
 </head>
 <body>
@@ -460,6 +482,19 @@
         </p>
       </div>
 
+      <div class="panel panel-pad" style="max-width:640px;margin-bottom:20px;">
+        <h3 style="margin-top:0;font-size:14px;">هەژماری من</h3>
+        <p style="font-size:12px;color:var(--ink-soft);margin-top:-6px;margin-bottom:14px;">ئیمەیل و وشەی نهێنی چوونەژوورەوە بگۆڕە. بۆ سەلامەتی، وشەی نهێنی ئێستات پێویستە.</p>
+        <div class="field"><label>ئیمەیلی ئێستا</label><input id="acctCurrentEmail" dir="ltr" style="text-align:left;" disabled></div>
+        <div class="field"><label>وشەی نهێنی ئێستا *</label><input id="acctCurrentPassword" type="password" dir="ltr" style="text-align:left;" placeholder="••••••••"></div>
+        <div class="field-row">
+          <div class="field"><label>ئیمەیلی نوێ (ئارەزوومەندانە)</label><input id="acctNewEmail" dir="ltr" style="text-align:left;" placeholder="بەتاڵ بهێڵەوە ئەگەر نەتگۆڕی"></div>
+          <div class="field"><label>وشەی نهێنی نوێ (ئارەزوومەندانە)</label><input id="acctNewPassword" type="password" dir="ltr" style="text-align:left;" placeholder="بەتاڵ بهێڵەوە ئەگەر نەتگۆڕی"></div>
+        </div>
+        <div id="acctMsg" style="display:none;font-size:12.5px;padding:9px 12px;border-radius:9px;margin-bottom:12px;"></div>
+        <button class="btn btn-primary" onclick="changeCredentials()">نوێکردنەوەی هەژمار</button>
+      </div>
+
       <div class="panel panel-pad" style="max-width:640px;">
         <h3 style="margin-top:0;font-size:14px;">پەیوەندی Firebase</h3>
         <div class="field"><label>apiKey</label><input id="cfgApiKey" dir="ltr" style="text-align:left;" placeholder="AIzaSy..."></div>
@@ -630,12 +665,16 @@ function initFirebase(cfg){
     if(firebase.apps.length){ firebase.apps.forEach(a=>a.delete()); }
     firebase.initializeApp(cfg);
     db = firebase.firestore();
+    db.enablePersistence({synchronizeTabs:true}).catch(err=>{
+      console.warn('Offline persistence not enabled:', err.code);
+    });
     firebase.auth().onAuthStateChanged(user=>{
       if(user){
         firebaseReady = true;
-        setSync('on','هاوکاتکراو');
+        setSync(navigator.onLine ? 'on' : 'off', navigator.onLine ? 'هاوکاتکراو' : 'بێ ئینتەرنێت — لۆکاڵ خەزن دەکرێت');
         document.getElementById('loginGate').style.display='none';
         document.getElementById('logoutBtn').style.display='flex';
+        document.getElementById('acctCurrentEmail').value = user.email || '';
         attachListeners();
       }else{
         firebaseReady = false;
@@ -649,6 +688,8 @@ function initFirebase(cfg){
     setSync('err', 'هەڵە: ' + (e.message || 'نەزانراو'));
   }
 }
+window.addEventListener('online', ()=>{ if(firebaseReady) setSync('on','هاوکاتکراو'); });
+window.addEventListener('offline', ()=>{ if(firebaseReady) setSync('off','بێ ئینتەرنێت — لۆکاڵ خەزن دەکرێت'); });
 function attachListeners(){
   if(unsubTests) unsubTests();
   if(unsubRecords) unsubRecords();
@@ -723,6 +764,47 @@ async function doLogin(){
 function doLogout(){
   if(!confirm('دەتەوێت دەربچیت؟')) return;
   firebase.auth().signOut();
+}
+async function changeCredentials(){
+  const msg = document.getElementById('acctMsg');
+  msg.style.display='none';
+  const user = firebase.auth().currentUser;
+  if(!user){ alert('پێویستە بچیتە ژوورەوە'); return; }
+  const currentPassword = document.getElementById('acctCurrentPassword').value;
+  const newEmail = document.getElementById('acctNewEmail').value.trim();
+  const newPassword = document.getElementById('acctNewPassword').value;
+  if(!currentPassword){
+    msg.style.background='var(--red-soft)'; msg.style.color='var(--red)';
+    msg.textContent = 'وشەی نهێنی ئێستا پێویستە'; msg.style.display='block';
+    return;
+  }
+  if(!newEmail && !newPassword){
+    msg.style.background='var(--red-soft)'; msg.style.color='var(--red)';
+    msg.textContent = 'لانیکەم یەکێک لە ئیمەیل یان وشەی نهێنی نوێ پڕبکەرەوە'; msg.style.display='block';
+    return;
+  }
+  try{
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
+    await user.reauthenticateWithCredential(cred);
+    if(newEmail && newEmail!==user.email){
+      await user.updateEmail(newEmail);
+    }
+    if(newPassword){
+      await user.updatePassword(newPassword);
+    }
+    msg.style.background='var(--mint-soft)'; msg.style.color='var(--teal-deep)';
+    msg.textContent = 'هەژمار بە سەرکەوتوویی نوێکرایەوە';
+    msg.style.display='block';
+    document.getElementById('acctCurrentPassword').value='';
+    document.getElementById('acctNewEmail').value='';
+    document.getElementById('acctNewPassword').value='';
+    document.getElementById('acctCurrentEmail').value = firebase.auth().currentUser.email || '';
+  }catch(e){
+    console.error(e);
+    msg.style.background='var(--red-soft)'; msg.style.color='var(--red)';
+    msg.textContent = 'هەڵە: ' + (e.code || e.message || 'نەزانراو');
+    msg.style.display='block';
+  }
 }
 
 /* ================= CATALOG ================= */
@@ -1172,8 +1254,13 @@ function printRecord(id){
   w.document.write(`
     <html dir="rtl" lang="ckb"><head><meta charset="UTF-8"><title>ڕاپۆرتی تاقیگە</title>
     <style>
+      @page{ size: A4; margin: 14mm; }
+      @media print{
+        html, body{ width:210mm; }
+      }
       *{box-sizing:border-box;}
-      body{font-family:Arial, sans-serif; padding:36px 42px; color:#132524; font-size:13px;}
+      html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      body{font-family:Arial, sans-serif; padding:0; margin:0 auto; max-width:210mm; color:#132524; font-size:13px;}
       .report-header{display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:14px; border-bottom:3px solid #0F5257;}
       .report-brand{display:flex; align-items:flex-start; gap:10px;}
       .report-brand-icon{width:36px;height:36px;flex-shrink:0;}
@@ -1197,6 +1284,9 @@ function printRecord(id){
       .report-footer{display:flex; justify-content:space-between; align-items:flex-end; margin-top:50px; padding-top:14px; border-top:1px solid #d8e2e0;}
       .report-signature{font-size:12.5px; color:#3d5453;}
       .report-contact{font-size:11.5px; color:#3d5453; line-height:1.9; text-align:left;}
+      @media screen{
+        body{ padding:28px; }
+      }
     </style></head><body>
 
     <div class="report-header">
